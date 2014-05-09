@@ -578,12 +578,6 @@ namespace Types{
 			static const bool result = VoidType<once>::result;
 		};
 
-		template<typename>struct TMPToCString;
-		template<char... chs>struct TMPToCString<TMPString<chs...>>{
-			static const char result[] = {
-				chs..., '\0'
-			};
-		};
 };
 
 
