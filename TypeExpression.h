@@ -66,7 +66,7 @@ namespace Types{
 		Member right;
 		mutable Member result;
 	public:
-		TypeExpression(Member left, Member right):left(left), right(right), result(){};
+		TypeExpression(Member left, Member right) :left(left), right(right), result(){};
 		size_t size()const{ return left.size() + right.size(); };
 		char& operator[](size_t index){
 			return (index < left.size()) ? left[index] : right[index - (left.size())];
@@ -77,7 +77,7 @@ namespace Types{
 		operator TypeString()const{
 			if (result->empty()){
 				size_t Max = left.size() + right.size();
-				char* cache = new char[Max+1];
+				char* cache = new char[Max + 1];
 				for (size_t i = 0; i != Max; ++i)
 					cache[i] = operator[](i);
 				cache[Max] = '\0';
@@ -96,7 +96,7 @@ namespace Types{
 		TypeString right;
 		mutable TypeString result;
 	public:
-		TypeExpression(TypeExpression<A, B> left, TypeString right) 
+		TypeExpression(TypeExpression<A, B> left, TypeString right)
 			:left(left), right(right), result(){};
 		size_t size()const{ return left.size() + right.size(); };
 		char& operator[](size_t index){
@@ -183,6 +183,134 @@ namespace Types{
 			return TypeString(*this);
 		};
 	};
+	template<>class TypeExpression<TypeString, size_t>{
+		TypeString left;
+		size_t right;
+		mutable TypeString result;
+	public:
+		TypeExpression(TypeString left, size_t right) :left(left), right(right),
+			result(){};
+		TypeExpression(size_t right, TypeString left) :left(left), right(right),
+			result(){};
+		size_t size()const{ return left.size()*right; };
+		char& operator[](size_t index){
+			return left[index % (left.size())];
+		};
+		char const& operator[](size_t index)const{
+			return left[index % (left.size())];
+		};
+		operator TypeString()const{
+			if (result->empty()){
+				size_t Max = left.size() * right;
+				char* cache = new char[Max + 1];
+				for (size_t i = 0; i != Max; ++i)
+					cache[i] = operator[](i);
+				cache[Max] = '\0';
+				std::cout << "make a string" << std::endl;
+				result = cache;
+			};
+			return result;
+		};
+		operator const char*()const{
+			return TypeString(*this);
+		};
+	};
+	template<typename A, typename B>
+	class TypeExpression<TypeExpression<A, B>, size_t>{
+		TypeExpression<A, B> left;
+		size_t right;
+		mutable TypeString result;
+	public:
+		TypeExpression(TypeExpression<A, B> left, size_t right)
+			:left(left), right(right), result(){};
+		TypeExpression(size_t right, TypeExpression<A, B> left)
+			:left(left), right(right), result(){};
+		size_t size()const{ return left.size()*right; };
+		char& operator[](size_t index){
+			return left[index % (left.size())];
+		};
+		char const& operator[](size_t index)const{
+			return left[index % (left.size())];
+		};
+		operator TypeString()const{
+			if (result->empty()){
+				size_t Max = left.size() * right;
+				char* cache = new char[Max + 1];
+				for (size_t i = 0; i != Max; ++i)
+					cache[i] = operator[](i);
+				cache[Max] = '\0';
+				std::cout << "make a string" << std::endl;
+				result = cache;
+			};
+			return result;
+		};
+		operator const char*()const{
+			return TypeString(*this);
+		};
+	};
+	template<>class TypeExpression<TypeString, std::pair<size_t, size_t>>{
+		TypeString str;
+		size_t start, end;
+		mutable TypeString result;
+	public:
+		TypeExpression(TypeString left, size_t start, size_t end)
+			:str(left), start(start >= str.size() ? str.size() - 1 : start),
+			end(end >= str.size() ? str.size() - 1 : end), result(){};
+		size_t size()const{ return end - start; };
+		char& operator[](size_t index){
+			return str[index + start];
+		};
+		char const& operator[](size_t index)const{
+			return str[index + start];
+		};
+		operator TypeString()const{
+			if (result->empty()){
+				size_t Max = size();
+				char* cache = new char[Max + 1];
+				for (size_t i = 0; i != Max; ++i)
+					cache[i] = operator[](i);
+				cache[Max] = '\0';
+				std::cout << "make a string" << std::endl;
+				result = cache;
+			};
+			return result;
+		};
+		operator const char*()const{
+			return TypeString(*this);
+		};
+	};
+	template<typename A, typename B>
+	class TypeExpression<TypeExpression<A, B>, std::pair<size_t, size_t>>{
+		TypeExpression<A, B> str;
+		size_t start, end;
+		mutable TypeString result;
+	public:
+		TypeExpression(TypeExpression<A, B> left, size_t start, size_t end)
+			:str(left), start(start >= str.size() ? str.size() - 1 : start),
+			end(end >= str.size() ? str.size() - 1 : end), result(){};
+		size_t size()const{ return end - start; };
+		char& operator[](size_t index){
+			return str[index + start];
+		};
+		char const& operator[](size_t index)const{
+			return str[index + start];
+		};
+		operator TypeString()const{
+			if (result->empty()){
+				size_t Max = size();
+				char* cache = new char[Max + 1];
+				for (size_t i = 0; i != Max; ++i)
+					cache[i] = operator[](i);
+				cache[Max] = '\0';
+				std::cout << "make a string" << std::endl;
+				result = cache;
+			};
+			return result;
+		};
+		operator const char*()const{
+			return TypeString(*this);
+		};
+	};
 
 	TypeExpression<TypeString, TypeString> operator+(TypeString a, TypeString b){
 		return TypeExpression<TypeString, TypeString>(a, b);
@@ -201,5 +329,31 @@ namespace Types{
 	TypeExpression<TypeExpression<A, B>, TypeExpression<C, D>> operator+
 		(TypeExpression<A, B> a, TypeExpression<C, D> b){
 		return TypeExpression<TypeExpression<A, B>, TypeExpression<C, D>>(a, b);
+	};
+	TypeExpression<TypeString, size_t> operator*(TypeString a, size_t b){
+		return TypeExpression<TypeString, size_t>(a, b);
+	};
+	TypeExpression<TypeString, size_t> operator*(size_t a, TypeString b){
+		return TypeExpression<TypeString, size_t>(a, b);
+	};
+	template<typename A, typename B>
+	TypeExpression<TypeExpression<A, B>, size_t> operator*
+		(TypeExpression<A, B> a, size_t b){
+		return TypeExpression<TypeExpression<A, B>, size_t>(a, b);
+	};
+	template<typename A, typename B>
+	TypeExpression<TypeExpression<A, B>, size_t> operator*
+		(size_t a, TypeExpression<A, B> b){
+		return TypeExpression<TypeExpression<A, B>, size_t>(a, b);
+	};
+	TypeExpression<TypeString, std::pair<size_t, size_t>> slice
+		(TypeString str, size_t start, size_t end){
+		return TypeExpression<TypeString, std::pair<size_t, size_t>>(str, start, end);
+	};
+	template<typename A, typename B>
+	TypeExpression<TypeExpression<A, B>, std::pair<size_t, size_t>> slice
+		(TypeExpression<A, B> str, size_t start, size_t end){
+		return TypeExpression<TypeExpression<A, B>, std::pair<size_t, size_t>>
+			(str, start, end);
 	};
 };
