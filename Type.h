@@ -1,3 +1,4 @@
+
 namespace Types{
 	template<typename...>struct TypeArray;
 	template<size_t...>struct NumArray;
@@ -606,6 +607,28 @@ namespace Types{
 		template<typename _3>static long helper(...){};
 		static const bool result = sizeof(helper<_1>(nullptr)) == sizeof(bool);
 	};
+
+	template<size_t num>struct NumToStringHelper{
+		template<size_t num_2, typename CA>struct Helper;
+		template<size_t num_2, char... chs>struct Helper<num_2, TMPString<chs...>>
+			:Helper<num_2 / 10, TMPString<num_2 % 10 + '0', chs...>>{};
+			template<char... chs>struct Helper<0, TMPString<chs...>>
+				:boost::mpl::c_str<boost::mpl::string<chs...>>{
+					typedef boost::mpl::string<chs...> Result;
+				};
+				typedef Helper<num, TMPString<>> Result;
+	};
+	//value : <const char[]> 编译期数值转字符串
+	template<size_t num>struct NumToString :NumToStringHelper<num>::Result{};
+
+	template<size_t num>struct ArraySizeHelperHelper{
+		typedef typename boost::mpl::push_front<typename NumToString<num>::Result,
+		boost::mpl::integral_c<char, '[' >> ::type once;
+		typedef typename boost::mpl::push_back<once, boost::mpl::integral_c
+			<char, ']' >> ::type twice;
+		typedef boost::mpl::c_str<twice> Result;
+	};
+	template<size_t num>struct ArraySizeHelper :ArraySizeHelperHelper<num>::Result{};
 };
 
 
@@ -893,6 +916,36 @@ namespace Types{
 		struct DynamicReplace{
 			typedef typename SelectType<Equal<T, From>::result, To, T>::Result Result;
 		};
+		static const unsigned char flag = 0;
+		static Slice<TypeString> front_name(){
+			static Slice<TypeString> cache;
+			if (cache.empty()){
+				TypeString temp = typeid(T).name();
+				if (temp.size() > 6 && temp[0] == 'c' && temp[1] == 'l'
+					&& temp[2] == 'a' && temp[3] == 's' && temp[4] == 's'
+					&& temp[5] == ' ')
+					return cache = slice(temp, 6, -1);
+				if (temp.size() > 7 && temp[0] == 's' && temp[1] == 't'
+					&& temp[2] == 'r' && temp[3] == 'u' && temp[4] == 'c'
+					&& temp[5] == 't' && temp[6] == ' ')
+					return cache = slice(temp, 7, -1);
+				if (temp.size() > 6 && temp[0] == 'u' && temp[1] == 'n'
+					&& temp[2] == 'i' && temp[3] == 'o' && temp[4] == 'n'
+					&& temp[5] == ' ')
+					return cache = slice(temp, 6, -1);
+				if (temp.size() > 5 && temp[0] == 'e' && temp[1] == 'n'
+					&& temp[2] == 'u' && temp[3] == 'm' && temp[4] == ' ')
+					return cache = slice(temp, 5, -1);
+				return cache = slice(temp, 0, -1);
+			};
+			return cache;
+		};
+		static TypeString back_name(){
+			return "";
+		};
+		static Slice<TypeString> name(){
+			return front_name();
+		};
 	};
 	template<typename T>struct TypeTree<T&>{
 		TEMPCODE_A
@@ -900,6 +953,37 @@ namespace Types{
 			typedef typename AddReference<To>::Result Result;
 		};
 		TEMPCODE_B
+			static const unsigned char flag = 0;
+		static auto front_name()
+			->decltype(SubTree::front_name() + TypeString()){
+			typedef decltype(SubTree::front_name()) L;
+			typedef decltype(L() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto front = SubTree::front_name();
+				cache = front + TypeString(SubTree::flag ? "(&" : " &");
+			};
+			return cache;
+		};
+		static auto back_name()
+			->decltype(TypeString() + SubTree::back_name()){
+			typedef decltype(SubTree::back_name()) L;
+			typedef decltype(TypeString() + L()) M;
+			static M cache;
+			if (cache.empty()){
+				auto back = SubTree::back_name();
+				cache = TypeString(SubTree::flag ? ")" : "") + back;
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 	};
 	template<typename T>struct TypeTree<T&&>{
 		TEMPCODE_A
@@ -907,6 +991,37 @@ namespace Types{
 			typedef typename AddRValueReference<To>::Result Result;
 		};
 		TEMPCODE_B
+			static const unsigned char flag = 0;
+		static auto front_name()
+			->decltype(SubTree::front_name() + TypeString()){
+			typedef decltype(SubTree::front_name()) L;
+			typedef decltype(L() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto front = SubTree::front_name();
+				cache = front + TypeString(SubTree::flag ? "(&&" : " &&");
+			};
+			return cache;
+		};
+		static auto back_name()
+			->decltype(TypeString() + SubTree::back_name()){
+			typedef decltype(SubTree::back_name()) L;
+			typedef decltype(TypeString() + L()) M;
+			static M cache;
+			if (cache.empty()){
+				auto back = SubTree::back_name();
+				cache = TypeString(SubTree::flag ? ")" : "") + back;
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 	};
 	template<typename T>struct TypeTree<T*>{
 		TEMPCODE_A
@@ -914,11 +1029,65 @@ namespace Types{
 			typedef typename AddPointer<To>::Result Result;
 		};
 		TEMPCODE_B
+			static const unsigned char flag = 0;
+		static auto front_name()
+			->decltype(SubTree::front_name() + TypeString()){
+			typedef decltype(SubTree::front_name()) L;
+			typedef decltype(L() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto front = SubTree::front_name();
+				cache = front + TypeString(SubTree::flag ? "(*" : " *");
+			};
+			return cache;
+		};
+		static auto back_name()
+			->decltype(TypeString() + SubTree::back_name()){
+			typedef decltype(SubTree::back_name()) L;
+			typedef decltype(TypeString() + L()) M;
+			static M cache;
+			if (cache.empty()){
+				auto back = SubTree::back_name();
+				cache = TypeString(SubTree::flag ? ")" : "") + back;
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 	};
 	template<typename T>struct TypeTree<T const>{
 		TEMPCODE_A
 		template<typename To>struct StaticReplace{
 			typedef typename AddConst<To>::Result Result;
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()
+			->decltype(SubTree::front_name() + TypeString()){
+			typedef decltype(SubTree::front_name()) L;
+			typedef decltype(L() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto front = SubTree::front_name();
+				cache = front + TypeString(" const");
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(SubTree::back_name()){
+			return SubTree::back_name();
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_B
 	};
@@ -927,12 +1096,58 @@ namespace Types{
 		template<typename To>struct StaticReplace{
 			typedef typename AddVolatile<To>::Result Result;
 		};
+		static const unsigned char flag = 0;
+		static auto front_name()
+			->decltype(SubTree::front_name() + TypeString()){
+			typedef decltype(SubTree::front_name()) L;
+			typedef decltype(L() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto front = SubTree::front_name();
+				cache = front + TypeString(" volatile");
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(SubTree::back_name()){
+			return SubTree::back_name();
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 		TEMPCODE_B
 	};
 	template<typename T>struct TypeTree<T const volatile>{
 		TEMPCODE_A
 		template<typename To>struct StaticReplace{
 			typedef typename AddCV<To>::Result Result;
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()
+			->decltype(SubTree::front_name() + TypeString()){
+			typedef decltype(SubTree::front_name()) L;
+			typedef decltype(L() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto front = SubTree::front_name();
+				cache = front + TypeString(" const volatile");
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(SubTree::back_name()){
+			return SubTree::back_name();
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_B
 	};
@@ -941,6 +1156,28 @@ namespace Types{
 		static const size_t result = size;
 		template<typename To>struct StaticReplace{
 			typedef typename AddArray<To, size>::Result Result;
+		};
+		static const unsigned char flag = 2;
+		static auto front_name()->decltype(SubTree::front_name()){
+			return SubTree::front_name();
+		};
+		static auto back_name()->decltype(TypeString() + SubTree::back_name()){
+			typedef decltype(SubTree::back_name()) L;
+			typedef decltype(TypeString() + L()) M;
+			static M cache;
+			if (cache.empty()){
+				auto back = SubTree::back_name();
+				cache = TypeString(ArraySizeHelper<size>::value) + back;
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_B
 	};
@@ -960,12 +1197,93 @@ namespace Types{
 			>::Result twice;
 			typedef typename StaticReplace<once, twice>::Result Result;
 		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<T>::front_name() + TypeString()
+			+ TypeTree<C>::name() + TypeString()){
+			typedef decltype(TypeTree<T>::front_name() + TypeString() +
+				TypeTree<C>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<T>::front_name();
+				auto b = TypeTree<C>::name();
+				cache = a + TypeString(TypeTree<T>::flag ? " (" : " ") + b + TypeString("::*");
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + TypeTree<T>::back_name()){
+			typedef decltype(TypeTree<T>::back_name()) L;
+			typedef decltype(TypeString() + L()) M;
+			static M cache;
+			if (cache.empty()){
+				auto back = TypeTree<T>::back_name();
+				cache = TypeString(TypeTree<T>::flag ? ") " : " ") + back;
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 	};
 	template<typename Ret, typename... Args>struct TypeTree<Ret(Args...)>{
 		typedef Ret Result;
 		typedef TypeArray<Ret, Args...> Member;
 		template<typename To1, typename... Ton>struct StaticReplace{
 			typedef To1 Result(Ton...);
+		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 1;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name()){
+			return TypeTree<Ret>::front_name();
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = " (" + slice(args, 1, -1) + TypeString(") ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_C
 	};
@@ -974,6 +1292,56 @@ namespace Types{
 		typedef TypeArray<Ret, Args...> Member;
 		template<typename To1, typename... Ton>struct StaticReplace{
 			typedef To1 Result(Ton..., ...);
+		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 1;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name()){
+			return TypeTree<Ret>::front_name();
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = " (" + slice(args, 1, -1) + TypeString(",...) ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_C;
 	};
@@ -984,6 +1352,65 @@ namespace Types{
 		template<typename To1, typename To2, typename... Ton>struct StaticReplace{
 			typedef To1(To2::*Result)(Ton...);
 		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name() + TypeString()
+			+ TypeTree<Class>::name() + TypeString()){
+			typedef decltype(TypeTree<Ret>::front_name() + TypeString()
+				+ TypeTree<Class>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<Ret>::front_name();
+				auto b = TypeTree<Class>::name();
+				cache = a + TypeString(" (") + b + "::* ";
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = ")(" + slice(args, 1, -1) + TypeString(") ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 		TEMPCODE_D
 	};
 	template<typename Ret, typename Class, typename... Args>
@@ -992,6 +1419,65 @@ namespace Types{
 		typedef TypeArray<Ret, Class, Args...> Member;
 		template<typename To1, typename To2, typename... Ton>struct StaticReplace{
 			typedef To1(To2::*Result)(Ton..., ...);
+		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name() + TypeString()
+			+ TypeTree<Class>::name() + TypeString()){
+			typedef decltype(TypeTree<Ret>::front_name() + TypeString()
+				+ TypeTree<Class>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<Ret>::front_name();
+				auto b = TypeTree<Class>::name();
+				cache = a + TypeString(" (") + b + "::* ";
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = ")(" + slice(args, 1, -1) + TypeString(",...) ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_D
 	};
@@ -1002,6 +1488,65 @@ namespace Types{
 		template<typename To1, typename To2, typename... Ton>struct StaticReplace{
 			typedef To1(To2::*Result)(Ton...);
 		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name() + TypeString()
+			+ TypeTree<Class>::name() + TypeString()){
+			typedef decltype(TypeTree<Ret>::front_name() + TypeString()
+				+ TypeTree<Class>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<Ret>::front_name();
+				auto b = TypeTree<Class>::name();
+				cache = a + TypeString(" (") + b + "::* ";
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = ")(" + slice(args, 1, -1) + TypeString(")const ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 		TEMPCODE_D
 	};
 	template<typename Ret, typename Class, typename... Args>
@@ -1010,6 +1555,65 @@ namespace Types{
 		typedef TypeArray<Ret, Class, Args...> Member;
 		template<typename To1, typename To2, typename... Ton>struct StaticReplace{
 			typedef To1(To2::*Result)(Ton..., ...);
+		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name() + TypeString()
+			+ TypeTree<Class>::name() + TypeString()){
+			typedef decltype(TypeTree<Ret>::front_name() + TypeString()
+				+ TypeTree<Class>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<Ret>::front_name();
+				auto b = TypeTree<Class>::name();
+				cache = a + TypeString(" (") + b + "::* ";
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = ")(" + slice(args, 1, -1) + TypeString(",...)const ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_D
 	};
@@ -1020,6 +1624,65 @@ namespace Types{
 		template<typename To1, typename To2, typename... Ton>struct StaticReplace{
 			typedef To1(To2::*Result)(Ton...);
 		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name() + TypeString()
+			+ TypeTree<Class>::name() + TypeString()){
+			typedef decltype(TypeTree<Ret>::front_name() + TypeString()
+				+ TypeTree<Class>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<Ret>::front_name();
+				auto b = TypeTree<Class>::name();
+				cache = a + TypeString(" (") + b + "::* ";
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = ")(" + slice(args, 1, -1) + TypeString(")volatile ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 		TEMPCODE_D
 	};
 	template<typename Ret, typename Class, typename... Args>
@@ -1028,6 +1691,65 @@ namespace Types{
 		typedef TypeArray<Ret, Class, Args...> Member;
 		template<typename To1, typename To2, typename... Ton>struct StaticReplace{
 			typedef To1(To2::*Result)(Ton..., ...);
+		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name() + TypeString()
+			+ TypeTree<Class>::name() + TypeString()){
+			typedef decltype(TypeTree<Ret>::front_name() + TypeString()
+				+ TypeTree<Class>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<Ret>::front_name();
+				auto b = TypeTree<Class>::name();
+				cache = a + TypeString(" (") + b + "::* ";
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = ")(" + slice(args, 1, -1) + TypeString(",...)volatile ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_D
 	};
@@ -1038,6 +1760,65 @@ namespace Types{
 		template<typename To1, typename To2, typename... Ton>struct StaticReplace{
 			typedef To1(To2::*Result)(Ton...);
 		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name() + TypeString()
+			+ TypeTree<Class>::name() + TypeString()){
+			typedef decltype(TypeTree<Ret>::front_name() + TypeString()
+				+ TypeTree<Class>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<Ret>::front_name();
+				auto b = TypeTree<Class>::name();
+				cache = a + TypeString(" (") + b + "::* ";
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = ")(" + slice(args, 1, -1) + TypeString(")const volatile ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
+		};
 		TEMPCODE_D
 	};
 	template<typename Ret, typename Class, typename... Args>
@@ -1046,6 +1827,65 @@ namespace Types{
 		typedef TypeArray<Ret, Class, Args...> Member;
 		template<typename To1, typename To2, typename... Ton>struct StaticReplace{
 			typedef To1(To2::*Result)(Ton..., ...);
+		};
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
+			};
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(TypeTree<Ret>::front_name() + TypeString()
+			+ TypeTree<Class>::name() + TypeString()){
+			typedef decltype(TypeTree<Ret>::front_name() + TypeString()
+				+ TypeTree<Class>::name() + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto a = TypeTree<Ret>::front_name();
+				auto b = TypeTree<Class>::name();
+				cache = a + TypeString(" (") + b + "::* ";
+			};
+			return cache;
+		};
+		static auto back_name()->decltype(TypeString() + slice(StringPack(), 1, -1)
+			+ TypeString()){
+			typedef decltype(TypeString() + slice(StringPack(), 1, -1)
+				+ TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				auto args = StringPack();
+				cache = ")(" + slice(args, 1, -1) + TypeString(",...)const volatile ");
+			};
+			return cache;
+		};
+		static auto name()
+			->decltype(front_name() + back_name()){
+			typedef decltype(front_name() + back_name()) M;
+			static M cache;
+			if (cache.empty())
+				cache = front_name() + back_name();
+			return cache;
 		};
 		TEMPCODE_D
 	};
@@ -1065,22 +1905,57 @@ namespace Types{
 			};
 			typedef typename StaticReplace<typename WW<Args>::Result...>::Result Result;
 		};
-	};
-	template<size_t num, template<size_t, typename...>class A, typename... Args>
-	struct TypeTree<A<num, Args...>>{
-		typedef A<num, Args...> Result;
-		typedef TypeArray<Args...> Member;
-		template<typename... To>struct StaticReplace{
-			typedef A<num, To...> Result;
-		};
-		template<template<typename, typename>class Equal, typename From, typename To>
-		struct DynamicReplace{
-			template<typename X>struct WW{
-				typedef typename SelectType<Equal<X, From>::result, To,
-				typename TypeTree<X>::template DynamicReplace<Equal, From, To>
-				::Result>::Result Result;
+		template<typename, typename...>struct PackHelper;
+		template<typename String, typename Head, typename... Other>struct PackHelper
+			<String, Head, Other...>{
+			static auto StringPack(String text)
+			->decltype(PackHelper<decltype(String() + TypeString() +
+			TypeTree<Head>::name()), Other...>::StringPack(String() + TypeString() +
+			TypeTree<Head>::name())){
+				auto a = text + TypeString(",") + TypeTree<Head>::name();
+				return PackHelper<decltype(String() + TypeString() +
+					TypeTree<Head>::name()), Other...>::StringPack(a);
 			};
-			typedef typename StaticReplace<typename WW<Args>::Result...>::Result Result;
+		};
+		template<typename String, typename Head>struct PackHelper<String, Head>{
+			static auto StringPack(String text)
+			->decltype(String() + TypeString() + TypeTree<Head>::name()){
+				return text + TypeString(",") + TypeTree<Head>::name();
+			};
+		};
+		template<typename String>struct PackHelper<String>{
+			static TypeString StringPack(String text){
+				return text;
+			};
+		};
+		static auto StringPack()
+			->decltype(PackHelper<TypeString, Args...>::StringPack(TypeString(""))){
+			return PackHelper<TypeString, Args...>::StringPack(TypeString(""));
+		};
+		static const unsigned char flag = 0;
+		static auto front_name()->decltype(slice("", 0, 0) + TypeString() +
+			slice(StringPack(), 1, -1) + TypeString()){
+			typedef decltype(slice("", 0, 0) + TypeString() +
+				slice(StringPack(), 1, -1) + TypeString()) M;
+			static M cache;
+			if (cache.empty()){
+				TypeString a = typeid(A<Args...>).name();
+				size_t index = std::find(a.begin(), a.end(), '<') - a.begin();
+				size_t start = 0;
+				if (a[0] == 'c') start = 6;
+				if (a[0] == 's') start = 7;
+				if (a[0] == 'u') start = 6;
+				auto m = slice(a, start, index);
+				auto b = slice(StringPack(), 1, -1);
+				cache = m + TypeString("<") + b + TypeString(">");
+			};
+			return cache;
+		};
+		static TypeString back_name(){
+			return "";
+		};
+		static auto name()->decltype(front_name()){
+			return front_name();
 		};
 	};
 #undef TEMPCODE_A
